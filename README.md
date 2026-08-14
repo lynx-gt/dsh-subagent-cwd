@@ -9,6 +9,8 @@ persona / toolFilter overrides, `@preset:` references, `provider/model` composit
 
 | [English](README.md) | [中文](README.zh.md) |
 
+[![awesome · DSH plugin](https://awesome-dsh-plugin.com/badge.svg)](https://awesome-dsh-plugin.com)
+
 ## Choose one of the two packages — not both
 
 | Package | Per-call model/provider/persona/toolFilter | `@preset:` | `cwd` | Patches |

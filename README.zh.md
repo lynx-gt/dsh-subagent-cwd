@@ -9,6 +9,8 @@ persona / toolFilter 覆盖、`@preset:` 引用、`provider/model` 复合 id）*
 
 | [English](README.md) | [中文](README.zh.md) |
 
+[![awesome · DSH plugin](https://awesome-dsh-plugin.com/badge.svg)](https://awesome-dsh-plugin.com)
+
 ## 两个包二选一，不要同时装
 
 | 包 | 按次 model/provider/persona/toolFilter | `@preset:` | `cwd` | 补丁 |

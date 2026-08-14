@@ -1,0 +1,40 @@
+# Patch 2/2: continuable (background) subagent cwd forwarding
+#
+# Target package : @deepseek-ai/dsh-subagent (lib/index.js — the BUNDLE)
+# Target version : 0.1.0-rc.6
+# What it does   : forward a per-call `request.cwd` into the continuable child
+#                  session's `create.meta`, so a background subagent runs in
+#                  the requested working directory.
+#
+# !!! BUNDLE WARNING !!!
+# This package's `package.json` main/exports point at lib/index.js, which is a
+# BUNDLE containing an inline copy of the continuation manager (the file
+# `lib/types/continuation.js` is NOT what runs). Patch the bundle at
+# `lib/index.js` only — patching `lib/types/continuation.js` has no effect.
+# After patching, verify with:  Select-String -Path lib/index.js -Pattern 'request.cwd'
+#
+# Why it is needed: same reason as patch 1 — the continuable manager builds
+# child meta from `childSessionMeta(parent, ...)` and never forwards a per-call
+# cwd. Without this merge the `cwd` parameter is silently ignored on the
+# background path while the foreground path honors it (the classic
+# "foreground works, background silently ignores" trap).
+#
+# Apply:  run patches/install.ps1 (Windows) or patches/install.sh (POSIX),
+#         or apply the hunk below manually, then `node --check`.
+# Revert: run patches/uninstall.ps1 / uninstall.sh, or restore the
+#         .bak_cwd_bundle backup the installer creates.
+
+--- a/@deepseek-ai/dsh-subagent/lib/index.js
++++ b/@deepseek-ai/dsh-subagent/lib/index.js
+@@ -806,7 +806,10 @@
+ 					parent,
+ 					create: {
+ 						seed,
+-						meta: childSessionMeta(parent, childDepth, lineageSeedLength),
++						meta: {
++							...childSessionMeta(parent, childDepth, lineageSeedLength),
++							...request.cwd !== void 0 ? { cwd: request.cwd } : {}
++						},
+ 						delegatedPolicies
+ 					},
+ 					agentOptions: resolveChildAgentOptions(parent, request.agentOptions, childDepth),

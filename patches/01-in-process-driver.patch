@@ -1,0 +1,33 @@
+﻿# Patch 1/2: foreground (one-shot) subagent cwd forwarding
+#
+# Target package : @deepseek-ai/dsh-subagent-in-process-driver (lib/index.js)
+# Target version : 0.1.0-rc.6
+# What it does   : forward a per-call `request.cwd` into the child session's
+#                  creation meta, so a foreground subagent runs in the
+#                  requested working directory instead of inheriting the
+#                  parent session cwd.
+#
+# Why it is needed: `SubagentStartRequest` has no cwd field and the in-process
+# drive layer never merges a per-call cwd into `agents.create({ meta })`.
+# Without this merge the `cwd` parameter of dsh-subagent-cwd is ignored
+# on the foreground path. (The continuable path needs patch 2 as well.)
+#
+# Apply:  run patches/install.ps1 (Windows) or patches/install.sh (POSIX),
+#         or apply the hunk below manually, then `node --check`.
+# Revert: run patches/uninstall.ps1 / uninstall.sh, or restore the .bak_cwd
+#         backup the installer creates.
+
+--- a/@deepseek-ai/dsh-subagent-in-process-driver/lib/index.js
++++ b/@deepseek-ai/dsh-subagent-in-process-driver/lib/index.js
+@@ -178,7 +178,10 @@
+ 	};
+ 	return drivePublishedRun(await parent.ctx.agents.create({
+ 		sessionId: childId,
+-		meta: childSessionMeta(parent, childDepth, activationBoundary),
++		meta: {
++			...childSessionMeta(parent, childDepth, activationBoundary),
++			...request.cwd !== void 0 ? { cwd: request.cwd } : {}
++		},
+ 		...seed !== void 0 ? { seed } : {},
+ 		agentOptions: resolveChildAgentOptions(parent, request.agentOptions, childDepth),
+ 		signal: request.signal,

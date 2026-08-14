@@ -1,0 +1,56 @@
+# dsh-subagent-cwd bundle patch.
+#
+# Replaces the stock subagent delegation tools with the enhanced versions from
+# this package: per-call model/provider/persona/toolFilter overrides,
+# `@preset:<id>` persona references, `provider/model` composite model ids, and
+# a per-call `cwd` working-directory override.
+#
+# The tool rows themselves are bundle rows — the shipped `tool-subagent`
+# and `tool-subagent-fork` rows are disabled and replaced, no official package
+# file is modified. The `cwd` parameter additionally needs the two drive-layer
+# patches in patches/ (foreground + continuable child creation); run
+# patches/install.ps1 (or install.sh) once after installing, and re-run after
+# every dsh upgrade.
+#
+# Install: dsh plugin --profile web add <this package>
+# Restart `dsh --profile web` after installing.
+
+# ── disable the stock delegation tools ────────────────────────────────
+- id: tool-subagent
+  disabled: true
+
+- id: tool-subagent-fork
+  disabled: true
+
+# ── insert our enhanced tools (same surface as the shipped rows) ─────────
+- insert:
+    # Spawn: continuable background by default, tool name `subagent`.
+    # presetHints lists the `@preset:` references surfaced in the tool schema
+    # so the model knows which presets exist on THIS deployment. Adjust to
+    # your own presets, or delete the key to stay generic.
+    - id: tool-subagent-cwd
+      name: dsh-subagent-cwd
+      config:
+        provider: spawn
+        toolName: subagent
+        backgroundMode: continuable
+        presetHints:
+          - '@preset:翻译员'
+          - '@preset:审校员'
+          - '@preset:停顿标注员'
+          - '@preset:大纲师'
+          - '@preset:审稿人'
+
+    # Fork: one-shot background policy, tool name `subagent_fork`.
+    - id: tool-subagent-cwd-fork
+      name: dsh-subagent-cwd
+      config:
+        provider: fork
+        toolName: subagent_fork
+        backgroundMode: one-shot
+        presetHints:
+          - '@preset:翻译员'
+          - '@preset:审校员'
+          - '@preset:停顿标注员'
+          - '@preset:大纲师'
+          - '@preset:审稿人'

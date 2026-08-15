@@ -52,6 +52,19 @@ v2 补丁（install.ps1 的 hunk 3 / hunk 5，三态兼容：原始 / 旧补丁 
 preset hunks 将在后续补齐。届时在 Linux 上 `preset` 参数会被接受，但在该补齐落地前不会
 真正 recompose。
 
+### ⚠️ 限制警告：router-style 预设下 persona 失效
+
+即使有补丁 v2，当子代理/成员组合使用 **router-style 预设**（如 `@preset:dsh-router-standard`）时，
+per-call `persona` 依然**不会进入系统提示**。这是 router-style 预设的机制性行为：其
+`system-prompt`/`assemble` 钩子会删除所有段名含 "persona" 的段，并注入预设自带的动态
+persona。因此最终生效的只有预设自带动态 persona，自定义角色文本被静默丢弃。
+
+缓解建议：
+- a) 改用非 router-style 预设（如 `standard`），让 `persona` 参数正常生效；
+- b) 把角色设定通过**消息层**注入（首轮 prompt 前缀 / 任务消息前缀，如 agent-teams 的
+  拼接机制），不依赖 cwd；
+- c) 或接受 router-style 下 `persona` 参数失效（预设动态 persona 生效）。
+
 ## 安装
 
 ```sh

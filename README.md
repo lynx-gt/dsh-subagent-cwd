@@ -57,6 +57,23 @@ The patch v2 hunks (3–5) are currently implemented **only in `install.ps1` (Wi
 The POSIX `install.sh` preset hunks will be added in a follow-up; on Linux the `preset`
 parameter is accepted but does not recompose until that lands.
 
+### ⚠️ Limitation: persona is lost under router-style presets
+
+Even with patch v2 in place, when a subagent/member uses a **router-style preset** (e.g.
+`@preset:dsh-router-standard`), the per-call `persona` still does NOT reach the system
+prompt. This is a mechanism-level behavior of router-style presets: their
+`system-prompt`/`assemble` hook deletes every section whose name matches /persona/i and
+injects the preset's own dynamic persona. As a result only the preset's built-in dynamic
+persona takes effect; your custom role persona is silently dropped.
+
+Workarounds:
+- a) Use a non-router-style preset (e.g. `standard`) so the `persona` parameter is honored;
+- b) Inject the role definition through the **message layer** instead (first-turn prompt
+  prefix / task-message prefix, e.g. the stitching mechanism used by agent-teams), which
+  does not depend on cwd;
+- c) Or accept that the `persona` parameter is a no-op under router-style presets (the
+  preset's own dynamic persona takes over).
+
 ## Installation
 
 ```sh

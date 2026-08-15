@@ -34,6 +34,24 @@ persona / toolFilter 覆盖、`@preset:` 引用、`provider/model` 复合 id）*
 第二处是 bundle 陷阱：该包 `package.json` 的 main/exports 指向 `lib/index.js`（内含 continuation
 manager 的内联副本）。改长得像源码的 `lib/types/continuation.js` **不生效**——必须改并验证 bundle。
 
+## persona × preset 并存（补丁 v2）
+
+`preset` 与 `persona` **同时给出**时（例如
+`subagent(preset: "@preset:router-standard", persona: "@preset:翻译员")`），旧补丁会把 per-call
+persona 注册成 `deployment:persona` 段，随后被目标 preset 的 router-bootstrap 类插件按名删除
+（`applyPersona` 会清掉所有名字含 "persona" 的段）——角色 persona 静默丢失。
+
+v2 补丁（install.ps1 的 hunk 3 / hunk 5，三态兼容：原始 / 旧补丁 / 新补丁均可升级）改为：
+- preset + persona 同给时**跳过** `deployment:persona` 注册；
+- recompose 之后把 per-call persona 注册为 **`delegation:role`**（order 1，名字不含
+  "persona"），router 删不到它，于是 **preset 自身的推理 persona 与委派的角色 persona 并存**。
+
+只传 `persona`（无 `preset`）时行为不变：仍走 `deployment:persona` 的 shadow 语义。
+
+补丁 v2 的 hunk 3–5 目前**仅在 `install.ps1`（Windows）实现**；POSIX 的 `install.sh`
+preset hunks 将在后续补齐。届时在 Linux 上 `preset` 参数会被接受，但在该补齐落地前不会
+真正 recompose。
+
 ## 安装
 
 ```sh

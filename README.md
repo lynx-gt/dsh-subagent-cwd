@@ -37,6 +37,26 @@ The second one is a bundle trap: `package.json` main/exports point at `lib/index
 inline copy of the continuation manager. Patching the source-shaped `lib/types/continuation.js` has **no
 effect** — always patch and verify the bundle.
 
+## persona × preset coexistence (patch v2)
+
+When `preset` and `persona` are given TOGETHER (e.g.
+`subagent(preset: "@preset:router-standard", persona: "@preset:翻译员")`), the old patch registered the
+per-call persona as the `deployment:persona` section, which router-style presets then deleted by name on
+every assemble (`applyPersona` strips every section whose name matches /persona/i) — the role persona was
+silently lost.
+
+Patch v2 (install.ps1 hunk 3 / hunk 5, three-state: raw / old-patch / new-patch all upgrade) instead:
+- skips the `deployment:persona` registration when preset AND persona are both given;
+- registers the per-call persona AFTER recompose as **`delegation:role`** (order 1, no "persona" in the
+  name), which the router's filter cannot reach — so the preset's own reasoning persona and the delegated
+  role persona COEXIST.
+
+Passing only `persona` (no `preset`) keeps the old behavior: plain `deployment:persona` shadowing.
+
+The patch v2 hunks (3–5) are currently implemented **only in `install.ps1` (Windows)**.
+The POSIX `install.sh` preset hunks will be added in a follow-up; on Linux the `preset`
+parameter is accepted but does not recompose until that lands.
+
 ## Installation
 
 ```sh

@@ -1,10 +1,21 @@
-# Patch 2/2: continuable (background) subagent cwd forwarding
+# Patch 2/2: continuable (background) subagent cwd forwarding + preset recompose
 #
 # Target package : @deepseek-ai/dsh-subagent (lib/index.js — the BUNDLE)
 # Target version : 0.1.0-rc.6
-# What it does   : forward a per-call `request.cwd` into the continuable child
-#                  session's `create.meta`, so a background subagent runs in
-#                  the requested working directory.
+# What it does   :
+#   a) forward a per-call `request.cwd` into the continuable child session's
+#      `create.meta`, so a background subagent runs in the requested working
+#      directory.
+#   b) forward `request.preset` through `composition` and recompose the child
+#      onto that preset's composition via
+#      `agentPresets.recompose(childCtx, composition.preset)` before its first
+#      request, so a background subagent can run under a DIFFERENT preset than
+#      the parent session.
+#   c) when BOTH `composition.preset` and `composition.persona` are set, skip
+#      the default `deployment:persona` section (router-style presets delete
+#      persona-named sections on assemble) and register the per-call persona
+#      AFTER recompose under the name `delegation:role`, so the preset's own
+#      persona and the delegated role persona coexist.
 #
 # !!! BUNDLE WARNING !!!
 # This package's `package.json` main/exports point at lib/index.js, which is a
@@ -15,12 +26,13 @@
 #
 # Why it is needed: same reason as patch 1 — the continuable manager builds
 # child meta from `childSessionMeta(parent, ...)` and never forwards a per-call
-# cwd. Without this merge the `cwd` parameter is silently ignored on the
-# background path while the foreground path honors it (the classic
+# cwd, and `applyChildComposition` always joins the PARENT's preset. Without
+# these merges the `cwd`/`preset` parameters are silently ignored on the
+# background path while the foreground path honors them (the classic
 # "foreground works, background silently ignores" trap).
 #
 # Apply:  run patches/install.ps1 (Windows) or patches/install.sh (POSIX),
-#         or apply the hunk below manually, then `node --check`.
+#         or apply the hunks below manually, then `node --check`.
 # Revert: run patches/uninstall.ps1 / uninstall.sh, or restore the
 #         .bak_cwd_bundle backup the installer creates.
 
@@ -38,3 +50,38 @@
  						delegatedPolicies
  					},
  					agentOptions: resolveChildAgentOptions(parent, request.agentOptions, childDepth),
+@@ -816,7 +819,10 @@
+ 					composition: {
+ 						persona: request.persona,
+-						toolFilter: request.toolFilter
++						toolFilter: request.toolFilter,
++						...request.preset !== void 0 ? { preset: request.preset } : {}
+ 					},
+ 					signal: spec.signal
+ 				});
+@@ -1194,8 +1194,20 @@
+ 	async materializeTracked(inputs, parentLineage) {
+ 		const { childId, provider, parent, create } = inputs;
+ 		inputs.signal.throwIfAborted();
+-		const setup = (childCtx) => {
++		const setup = async (childCtx) => {
+ 			if (create !== void 0) appendDelegatedPolicyOverrides(childCtx.agent.session, create.delegatedPolicies);
+-			applyChildComposition(childCtx, parent, inputs.composition);
++			applyChildComposition(childCtx, parent, {
++				// 同 driver：preset + persona 同给时跳过 deployment:persona 段，
++				// recompose 后注册 delegation:role 段，与 preset 自身 persona 并存。
++				...inputs.composition,
++				persona: inputs.composition?.persona !== void 0 && inputs.composition?.preset !== void 0 ? undefined : inputs.composition?.persona
++			});
+ 			if (inputs.composition?.preset !== void 0) {
+ 				await childCtx.get("agentPresets")?.recompose(childCtx, inputs.composition.preset);
++				if (inputs.composition?.persona !== void 0) {
++					childCtx.systemPrompt.section({
++						name: "delegation:role",
++						order: 1,
++						text: inputs.composition.persona
++					});
++				}
+ 			}
+ 			return this.setupRegistry.apply(childCtx);
+ 		};

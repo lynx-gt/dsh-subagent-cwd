@@ -1,6 +1,6 @@
 {
   "name": "dsh-subagent-cwd",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Enhanced subagent delegation tools for DeepSeek Harness with per-call cwd control: everything in dsh-subagent-tools plus a cwd parameter, shipped with the two in-process provider patches it requires.",
   "type": "module",
   "main": "lib/index.js",

@@ -45,8 +45,12 @@ function Get-DshRoots {
 }
 
 function Get-TargetFile($root, $rel) {
+  # 直链：传统 node_modules/<rel>（非 pnpm 虚拟存储布局）
   $p = Join-Path $root $rel
   if (Test-Path $p) { return $p }
+  # pnpm hoisted 顶层：node_modules/.pnpm/node_modules/<rel>（pnpm v11 公共 hoist 层）
+  $hoisted = Join-Path $root (Join-Path 'node_modules\.pnpm\node_modules' $rel)
+  if (Test-Path $hoisted) { return $hoisted }
   return $null
 }
 

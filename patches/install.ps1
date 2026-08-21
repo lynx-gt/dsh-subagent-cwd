@@ -232,22 +232,30 @@ foreach ($root in $roots) {
   # hunk 1 + hunk 3: in-process driver
   $f1 = Get-TargetFile $root '@deepseek-ai\dsh-subagent-in-process-driver\lib\index.js'
   if ($f1) {
-    $bak = "$f1.bak_cwd"
-    if (-not (Test-Path $bak)) { Copy-Item $f1 $bak; Write-Host "[bak] $bak" }
-    Apply-Replace $f1 $hunk1Old $hunk1New '01-in-process-driver (cwd meta)'
-    try { Apply-Replace $f1 $hunk3OldRaw $hunk3New '03-in-process-driver (preset recompose, raw)' }
-    catch { Apply-Replace $f1 $hunk3OldOld $hunk3New '03-in-process-driver (preset recompose, upgrade)' }
+    $raw1 = [System.IO.File]::ReadAllText($f1)
+    $final1 = $raw1.Contains('delegation:role') -and $raw1.Contains('request.cwd')
+    if (-not $final1) {
+      $bak = "$f1.bak_cwd"
+      if (-not (Test-Path $bak)) { Copy-Item $f1 $bak; Write-Host "[bak] $bak" }
+      Apply-Replace $f1 $hunk1Old $hunk1New '01-in-process-driver (cwd meta)'
+      try { Apply-Replace $f1 $hunk3OldRaw $hunk3New '03-in-process-driver (preset recompose, raw)' }
+      catch { Apply-Replace $f1 $hunk3OldOld $hunk3New '03-in-process-driver (preset recompose, upgrade)' }
+    } else { Write-Host "[skip] in-process-driver already patched (FINAL): $f1" }
     $applied += $f1
   }
   # hunk 2 + hunk 4 + hunk 5: subagent bundle
   $f2 = Get-TargetFile $root '@deepseek-ai\dsh-subagent\lib\index.js'
   if ($f2) {
-    $bak = "$f2.bak_cwd_bundle"
-    if (-not (Test-Path $bak)) { Copy-Item $f2 $bak; Write-Host "[bak] $bak" }
-    Apply-Replace $f2 $hunk2Old $hunk2New '02-subagent-bundle (cwd meta)'
-    Apply-Replace $f2 $hunk4Old $hunk4New '04-subagent-bundle (preset composition)'
-    try { Apply-Replace $f2 $hunk5OldRaw $hunk5New '05-subagent-bundle (preset recompose, raw)' }
-    catch { Apply-Replace $f2 $hunk5OldOld $hunk5New '05-subagent-bundle (preset recompose, upgrade)' }
+    $raw2 = [System.IO.File]::ReadAllText($f2)
+    $final2 = $raw2.Contains('delegation:role') -and $raw2.Contains('request.cwd')
+    if (-not $final2) {
+      $bak = "$f2.bak_cwd_bundle"
+      if (-not (Test-Path $bak)) { Copy-Item $f2 $bak; Write-Host "[bak] $bak" }
+      Apply-Replace $f2 $hunk2Old $hunk2New '02-subagent-bundle (cwd meta)'
+      Apply-Replace $f2 $hunk4Old $hunk4New '04-subagent-bundle (preset composition)'
+      try { Apply-Replace $f2 $hunk5OldRaw $hunk5New '05-subagent-bundle (preset recompose, raw)' }
+      catch { Apply-Replace $f2 $hunk5OldOld $hunk5New '05-subagent-bundle (preset recompose, upgrade)' }
+    } else { Write-Host "[skip] subagent bundle already patched (FINAL): $f2" }
     $applied += $f2
   }
 }

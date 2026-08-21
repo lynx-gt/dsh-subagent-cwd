@@ -1,7 +1,7 @@
 # Patch 1/2: foreground (one-shot) subagent cwd forwarding + preset recompose
 #
 # Target package : @deepseek-ai/dsh-subagent-in-process-driver (lib/index.js)
-# Target version : 0.1.0-rc.6
+# Target version : 0.1.1-rc.1
 # What it does   :
 #   a) forward a per-call `request.cwd` into the child session's creation meta,
 #      so a foreground subagent runs in the requested working directory instead
@@ -17,13 +17,14 @@
 #      `delegation:role`, so the preset's own persona and the delegated role
 #      persona coexist.
 #
-# Why it is needed: `SubagentStartRequest` has no cwd field and the in-process
-# drive layer never merges a per-call cwd into `agents.create({ meta })`.
-# Likewise, `applyChildComposition` always joins the PARENT's preset; a per-call
-# preset override must re-link the child after the join. `setup` supports async
-# (the loop awaits it), so the recompose lands before the child's first
-# `system-prompt/assemble` — the bootstrap cut (anchored-standard) sees the new
-# composition. (The continuable path needs patch 2 as well.)
+# Why it is needed: rc.1's official driver already passes `request.persona` and
+# `request.toolFilter` into `applyChildComposition`, but `SubagentStartRequest`
+# still has no cwd field and no per-call preset override: `childSessionMeta`
+# only inherits `parentHeader.cwd`, and `applyChildComposition` always joins the
+# PARENT's preset. Without these merges the `cwd`/`preset` parameters are
+# silently ignored on the foreground path. `setup` supports async (the creation
+# loop awaits it), so the recompose lands before the child's first request.
+# (The continuable path needs patch 2 as well.)
 #
 # Apply:  run patches/install.ps1 (Windows) or patches/install.sh (POSIX),
 #         or apply the hunks below manually, then `node --check`.
@@ -32,7 +33,32 @@
 
 --- a/@deepseek-ai/dsh-subagent-in-process-driver/lib/index.js
 +++ b/@deepseek-ai/dsh-subagent-in-process-driver/lib/index.js
-@@ -178,7 +178,10 @@
+@@ -167,18 +167,33 @@ async function startInProcessRun(request, options) {
+ 	const activationBoundary = seed?.length ?? 0;
+ 	const inherited = captureDelegatedPolicyOverrides(parent);
+ 	let structured;
+-	const setup = (childCtx) => {
++	const setup = async (childCtx) => {
+ 		appendDelegatedPolicyOverrides(childCtx.agent.session, inherited);
+ 		applyChildComposition(childCtx, parent, {
++			// persona + preset 同给时先跳过默认 deployment:persona 段：目标 preset 的
++			// router-bootstrap 类插件会按名删除 persona 段，改在 recompose 之后注册
++			// 不含 "persona" 字样的 delegation:role 段，与 preset 自身 persona 并存。
+ 			persona: request.persona !== void 0 && request.preset !== void 0 ? undefined : request.persona,
+ 			toolFilter: request.toolFilter
+ 		});
++		if (request.preset !== void 0) {
++			await childCtx.get("agentPresets")?.recompose(childCtx, request.preset);
++			if (request.persona !== void 0) {
++				childCtx.systemPrompt.section({
++					name: "delegation:role",
++					order: 1,
++					text: request.persona
++				});
++			}
++		}
+ 		if (request.outputSchema !== void 0) structured = attachStructuredRuntime(childCtx, request.outputSchema);
+ 		attachDescriptorAppend(childCtx, request.descriptor);
  	};
  	return drivePublishedRun(await parent.ctx.agents.create({
  		sessionId: childId,
@@ -44,28 +70,3 @@
  		...seed !== void 0 ? { seed } : {},
  		agentOptions: resolveChildAgentOptions(parent, request.agentOptions, childDepth),
  		signal: request.signal,
-@@ -170,12 +170,22 @@
--	const setup = (childCtx) => {
-+	const setup = async (childCtx) => {
- 		appendDelegatedPolicyOverrides(childCtx.agent.session, inherited);
- 		applyChildComposition(childCtx, parent, {
--			persona: request.persona,
-+			// persona + preset 同给时先跳过默认 deployment:persona 段：目标 preset 的
-+			// router-bootstrap 类插件会按名删除 persona 段，改在 recompose 之后注册
-+			// 不含 "persona" 字样的 delegation:role 段，与 preset 自身 persona 并存。
-+			persona: request.persona !== void 0 && request.preset !== void 0 ? undefined : request.persona,
- 			toolFilter: request.toolFilter
- 		});
- 		if (request.preset !== void 0) {
- 			await childCtx.get("agentPresets")?.recompose(childCtx, request.preset);
-+			if (request.persona !== void 0) {
-+				childCtx.systemPrompt.section({
-+					name: "delegation:role",
-+					order: 1,
-+					text: request.persona
-+				});
-+			}
- 		}
- 		if (request.outputSchema !== void 0) structured = attachStructuredRuntime(childCtx, request.outputSchema);
- 		attachDescriptorAppend(childCtx, request.descriptor);
- 	};

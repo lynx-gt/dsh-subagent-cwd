@@ -144,7 +144,7 @@ Let a subagent work in a directory without the repo's AGENTS.md injected:
   `node --check`-verified. This is the entire reason this package exists
   separately from `dsh-subagent-tools`.
 - **Version contract:** `peerDependencies` pin the public dsh packages
-  (`^0.1.0-rc.6`). The patches target the same version; a dsh upgrade rewrites
+  (`0.1.1-rc.1`). The patches target the same version; a dsh upgrade rewrites
   the dsh installation's `node_modules` and **wipes both patches** — re-run
   `patches/install.ps1` / `install.sh` after every upgrade (see *Upgrading dsh*).
   The bundle itself lives in the profile's own `node_modules` and survives an
@@ -152,7 +152,7 @@ Let a subagent work in a directory without the repo's AGENTS.md injected:
 
 ## Verified
 
-Tested against a stock dsh `0.1.0-rc.6` install on Windows (headless + web):
+Tested against a stock dsh `0.1.1-rc.1` install on Windows (headless + web):
 
 - Everything `dsh-subagent-tools` verifies (per-call model/provider/persona/
   toolFilter, `@preset:`, `presetHints`) ✅
@@ -167,8 +167,13 @@ Tested against a stock dsh `0.1.0-rc.6` install on Windows (headless + web):
 
 ## Limitations
 
-- **Patches target rc.6 only.** The two patches match exact anchors in the
-  rc.6 bundle; a dsh upgrade invalidates them until re-run (or a new release).
+- **Patches target rc.1 (0.1.1-rc.1).** The two patches match exact anchors in
+  the rc.1 official sources; if a future dsh upgrade moves the anchors, re-run
+  `patches/install.ps1` — "anchor not found" means the patches need a new
+  adaptation. Since rc.1, the official driver natively consumes per-call
+  `persona` / `toolFilter` (`applyChildComposition` reads `request.persona`);
+  the patches only cover what the official code still lacks: per-call `cwd`
+  forwarding and per-call `preset` recompose.
 - **`@preset:` depends on the local preset layout** — same caveat as
   `dsh-subagent-tools`.
 - **Web sessions need the preset adapter** (`install-preset.ps1`) for the same

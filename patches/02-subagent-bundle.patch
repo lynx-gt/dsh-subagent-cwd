@@ -1,7 +1,7 @@
 # Patch 2/2: continuable (background) subagent cwd forwarding + preset recompose
 #
 # Target package : @deepseek-ai/dsh-subagent (lib/index.js — the BUNDLE)
-# Target version : 0.1.0-rc.6
+# Target version : 0.1.1-rc.1
 # What it does   :
 #   a) forward a per-call `request.cwd` into the continuable child session's
 #      `create.meta`, so a background subagent runs in the requested working
@@ -24,11 +24,12 @@
 # `lib/index.js` only — patching `lib/types/continuation.js` has no effect.
 # After patching, verify with:  Select-String -Path lib/index.js -Pattern 'request.cwd'
 #
-# Why it is needed: same reason as patch 1 — the continuable manager builds
-# child meta from `childSessionMeta(parent, ...)` and never forwards a per-call
-# cwd, and `applyChildComposition` always joins the PARENT's preset. Without
-# these merges the `cwd`/`preset` parameters are silently ignored on the
-# background path while the foreground path honors them (the classic
+# Why it is needed: rc.1's official continuation manager already forwards
+# `request.persona`/`request.toolFilter` into `composition`, but it never
+# forwards a per-call cwd into `create.meta` (only `parentHeader.cwd` is
+# inherited) and `applyChildComposition` always joins the PARENT's preset.
+# Without these merges the `cwd`/`preset` parameters are silently ignored on
+# the background path while the foreground path honors them (the classic
 # "foreground works, background silently ignores" trap).
 #
 # Apply:  run patches/install.ps1 (Windows) or patches/install.sh (POSIX),
@@ -38,7 +39,7 @@
 
 --- a/@deepseek-ai/dsh-subagent/lib/index.js
 +++ b/@deepseek-ai/dsh-subagent/lib/index.js
-@@ -806,7 +806,10 @@
+@@ -817,13 +817,16 @@ var SubagentContinuationManager = class {
  					parent,
  					create: {
  						seed,
@@ -50,16 +51,15 @@
  						delegatedPolicies
  					},
  					agentOptions: resolveChildAgentOptions(parent, request.agentOptions, childDepth),
-@@ -816,7 +819,10 @@
  					composition: {
  						persona: request.persona,
 -						toolFilter: request.toolFilter
 +						toolFilter: request.toolFilter,
-+						...request.preset !== void 0 ? { preset: request.preset } : {}
++						...(request.preset !== void 0 ? { preset: request.preset } : {})
  					},
  					signal: spec.signal
  				});
-@@ -1194,8 +1194,20 @@
+@@ -1225,9 +1226,25 @@ var SubagentContinuationManager = class {
  	async materializeTracked(inputs, parentLineage) {
  		const { childId, provider, parent, create } = inputs;
  		inputs.signal.throwIfAborted();
@@ -73,8 +73,8 @@
 +				...inputs.composition,
 +				persona: inputs.composition?.persona !== void 0 && inputs.composition?.preset !== void 0 ? undefined : inputs.composition?.persona
 +			});
- 			if (inputs.composition?.preset !== void 0) {
- 				await childCtx.get("agentPresets")?.recompose(childCtx, inputs.composition.preset);
++			if (inputs.composition?.preset !== void 0) {
++				await childCtx.get("agentPresets")?.recompose(childCtx, inputs.composition.preset);
 +				if (inputs.composition?.persona !== void 0) {
 +					childCtx.systemPrompt.section({
 +						name: "delegation:role",
@@ -82,6 +82,7 @@
 +						text: inputs.composition.persona
 +					});
 +				}
- 			}
++			}
  			return this.setupRegistry.apply(childCtx);
  		};
+ 		const observer = this.host.observeActivation(provider, childId, parent);

@@ -110,14 +110,14 @@ dsh plugin --profile web remove dsh-subagent-cwd
 - **`cwd` 是唯一无法保持 bundle-only 的能力。** `SubagentStartRequest` 没有 cwd 字段，按次 cwd 必须由进程内
   subagent provider 透传——所以需要 `patches/` 里的两处小补丁（各一个 hunk），幂等、首次运行自动备份、
   `node --check` 校验。这就是本包与 `dsh-subagent-tools` 分开存在的原因。
-- **版本契约：** `peerDependencies` 锁定公开 dsh 包（`^0.1.0-rc.6`）；补丁针对同一版本。dsh 升级会重写
+- **版本契约：** `peerDependencies` 锁定公开 dsh 包（`0.1.1-rc.1`）；补丁针对同一版本。dsh 升级会重写
   dsh 安装的 `node_modules` 并**清掉两处补丁**——每次升级后重跑 `patches/install.ps1` / `install.sh`
   （见"升级 dsh 之后"）。bundle 本身装在 profile 自己的 `node_modules`，升级后仍在，但官方 API 一旦变化，
   `peerDependencies` 会显式拒绝加载。
 
 ## 已验证
 
-在干净（无本地补丁）的 dsh `0.1.0-rc.6` Windows 环境实测（headless + web）：
+在干净（无本地补丁）的 dsh `0.1.1-rc.1` Windows 环境实测（headless + web）：
 
 - `dsh-subagent-tools` 的全部验证项（按次 model/provider/persona/toolFilter、`@preset:`、presetHints）✅
 - **`cwd` 前台路径** ✅ —— 子代理的 `pwd` 和沙箱工作区都切到指定目录
@@ -127,7 +127,9 @@ dsh plugin --profile web remove dsh-subagent-cwd
 
 ## 限制
 
-- **补丁只针对 rc.6。** 两处补丁匹配 rc.6 bundle 的精确锚点；dsh 升级后失效，需重跑（或等新版本）。
+- **补丁已适配 rc.1（0.1.1-rc.1）。** 两处补丁匹配 rc.1 官方源码的精确锚点；dsh 再次升级后若锚点失效，重跑
+  `patches/install.ps1`（报 "anchor not found" 即需适配新版本）。rc.1 官方已原生支持按次 `persona` / `toolFilter`
+  （`applyChildComposition` 直接消费 `request.persona`），补丁只补官方仍缺的按次 `cwd` 与 `preset` recompose。
 - **`@preset:` 依赖本地预设布局** —— 与 `dsh-subagent-tools` 相同。
 - **Web 会话需要 preset 适配脚本**（`install-preset.ps1`）——原因同 `dsh-subagent-tools`。
 
